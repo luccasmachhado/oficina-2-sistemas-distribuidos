@@ -33,6 +33,202 @@ app.post("/api/tarefas", (req, res) => {
     res.status(201).json(novaTarefa);
 });
 
+app.post("/api/analisar-sequencial", async (req, res) => {
+
+    const titulo = req.body.titulo;
+
+    const inicio = Date.now();
+
+    const respostaPrioridade = await fetch(
+        "http://localhost:3001/analisar",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                titulo: titulo
+            })
+        }
+    );
+
+    const prioridade = await respostaPrioridade.json();
+
+
+    const respostaTempo = await fetch(
+        "http://localhost:3002/analisar",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                titulo: titulo
+            })
+        }
+    );
+
+    const tempo = await respostaTempo.json();
+
+
+    const respostaCategoria = await fetch(
+        "http://localhost:3003/analisar",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                titulo: titulo
+            })
+        }
+    );
+
+    const categoria = await respostaCategoria.json();
+
+
+    const fim = Date.now();
+
+    res.json({
+        titulo: titulo,
+        prioridade: prioridade.prioridade,
+        estimativaHoras: tempo.estimativaHoras,
+        categoria: categoria.categoria,
+        tempoTotalMs: fim - inicio,
+        modo: "sequencial"
+    });
+});
+
+app.post("/api/analisar-concorrente", async (req, res) => {
+
+    const titulo = req.body.titulo;
+
+    const inicio = Date.now();
+
+    const requisicaoPrioridade = fetch(
+        "http://localhost:3001/analisar",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                titulo: titulo
+            })
+        }
+    );
+
+    const requisicaoTempo = fetch(
+        "http://localhost:3002/analisar",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                titulo: titulo
+            })
+        }
+    );
+
+    const requisicaoCategoria = fetch(
+        "http://localhost:3003/analisar",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                titulo: titulo
+            })
+        }
+    );
+
+    const respostas = await Promise.all([
+        requisicaoPrioridade,
+        requisicaoTempo,
+        requisicaoCategoria
+    ]);
+
+    const dados = await Promise.all([
+        respostas[0].json(),
+        respostas[1].json(),
+        respostas[2].json()
+    ]);
+
+    const fim = Date.now();
+
+    res.json({
+        titulo: titulo,
+        prioridade: dados[0].prioridade,
+        estimativaHoras: dados[1].estimativaHoras,
+        categoria: dados[2].categoria,
+        tempoTotalMs: fim - inicio,
+        modo: "concorrente"
+    });
+});
+
+async function chamarServico(url, titulo) {
+
+    try {
+
+        const resposta = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                titulo: titulo
+            })
+        });
+
+        if (!resposta.ok) {
+            throw new Error("Resposta inválida");
+        }
+
+        return await resposta.json();
+
+    } catch (erro) {
+
+        return {
+            erro: true,
+            mensagem: "Serviço indisponível"
+        };
+    }
+}
+
+app.post("/api/analisar-tolerante", async (req, res) => {
+
+    const titulo = req.body.titulo;
+
+    const inicio = Date.now();
+
+    const resultados = await Promise.all([
+        chamarServico(
+            "http://localhost:3001/analisar",
+            titulo
+        ),
+        chamarServico(
+            "http://localhost:3002/analisar",
+            titulo
+        ),
+        chamarServico(
+            "http://localhost:3003/analisar",
+            titulo
+        )
+    ]);
+
+    const fim = Date.now();
+
+    res.json({
+        titulo: titulo,
+        prioridade: resultados[0],
+        tempo: resultados[1],
+        categoria: resultados[2],
+        tempoTotalMs: fim - inicio
+    });
+});
+
 app.listen(PORTA, () => {
     console.log(`Servidor rodando em http://localhost:${PORTA}`);
 });
