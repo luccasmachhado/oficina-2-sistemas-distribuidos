@@ -86,6 +86,20 @@ app.post("/api/analisar-sequencial", async (req, res) => {
 
     const categoria = await respostaCategoria.json();
 
+    const respostaComplexidade = await fetch(
+        "http://localhost:3004/analisar",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                titulo: titulo
+            })
+        }
+    );
+
+    const complexidade = await respostaComplexidade.json();
 
     const fim = Date.now();
 
@@ -94,6 +108,7 @@ app.post("/api/analisar-sequencial", async (req, res) => {
         prioridade: prioridade.prioridade,
         estimativaHoras: tempo.estimativaHoras,
         categoria: categoria.categoria,
+        complexidade: complexidade.complexidade,
         tempoTotalMs: fim - inicio,
         modo: "sequencial"
     });
@@ -144,16 +159,31 @@ app.post("/api/analisar-concorrente", async (req, res) => {
         }
     );
 
+    const requisicaoComplexidade = fetch(
+        "http://localhost:3004/analisar",
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                titulo: titulo
+            })
+        }
+    );
+
     const respostas = await Promise.all([
         requisicaoPrioridade,
         requisicaoTempo,
-        requisicaoCategoria
+        requisicaoCategoria,
+        requisicaoComplexidade
     ]);
 
     const dados = await Promise.all([
         respostas[0].json(),
         respostas[1].json(),
-        respostas[2].json()
+        respostas[2].json(),
+        respostas[3].json()
     ]);
 
     const fim = Date.now();
@@ -163,6 +193,7 @@ app.post("/api/analisar-concorrente", async (req, res) => {
         prioridade: dados[0].prioridade,
         estimativaHoras: dados[1].estimativaHoras,
         categoria: dados[2].categoria,
+        complexidade: dados[3].complexidade,
         tempoTotalMs: fim - inicio,
         modo: "concorrente"
     });
@@ -215,7 +246,11 @@ app.post("/api/analisar-tolerante", async (req, res) => {
         chamarServico(
             "http://localhost:3003/analisar",
             titulo
-        )
+        ),
+        chamarServico(
+            "http://localhost:3004/analisar",
+            titulo
+        ),
     ]);
 
     const fim = Date.now();
@@ -225,6 +260,7 @@ app.post("/api/analisar-tolerante", async (req, res) => {
         prioridade: resultados[0],
         tempo: resultados[1],
         categoria: resultados[2],
+        complexidade: resultados[3],
         tempoTotalMs: fim - inicio
     });
 });
